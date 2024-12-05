@@ -3,6 +3,7 @@ import { View, Text, ActivityIndicator, ScrollView, StyleSheet } from 'react-nat
 import { PieChart } from 'react-native-chart-kit';
 import MapView, { Marker } from 'react-native-maps';
 import { Stack } from '@tamagui/core';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Define types for locations and dashboard data
 type Location = {
@@ -17,12 +18,13 @@ type DashboardData = {
   totalCapacity: string;
   totalProduction: string;
   esgRating: string;
-  capacityByType: any[];
+  capacityByType: Array<{ name: string; value: number; color: string }>;
 };
 
 const fetchDashboardData = async (): Promise<DashboardData | null> => {
   try {
     const response = await fetch('https://imost.ptplnnr.com/api/dashboard');
+    if (!response.ok) throw new Error('Failed to fetch data');
     return await response.json();
   } catch (error) {
     console.error('Error fetching dashboard data:', error);
@@ -46,8 +48,16 @@ const HomePage = ({ locations }: { locations: Location[] }) => {
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <View style={styles.centered}>
         <ActivityIndicator size="large" color="#16718A" />
+      </View>
+    );
+  }
+
+  if (!dashboardData) {
+    return (
+      <View style={styles.centered}>
+        <Text>Error loading data. Please try again later.</Text>
       </View>
     );
   }
@@ -55,21 +65,25 @@ const HomePage = ({ locations }: { locations: Location[] }) => {
   return (
     <ScrollView style={styles.container}>
       <Stack space>
-        <InfoCard title="Total Nilai Investasi" subtitle={`Rp ${dashboardData?.totalInvest}`} />
-        <InfoCard title="Total Kapasitas Pembangkit" subtitle={`${dashboardData?.totalCapacity} MW`} />
-        <InfoCard title="Total Produksi Listrik" subtitle={`${dashboardData?.totalProduction} GWh`} />
+        <InfoCard title="Total Nilai Investasi" subtitle={`Rp ${dashboardData.totalInvest}`} />
+        <InfoCard title="Total Kapasitas Pembangkit" subtitle={`${dashboardData.totalCapacity} MW`} />
+        <InfoCard title="Total Produksi Listrik" subtitle={`${dashboardData.totalProduction} GWh`} />
       </Stack>
       <Stack style={styles.chartContainer}>
         <Text>Kapasitas Per Jenis Pembangkit</Text>
-        <PieChart
-          data={dashboardData?.capacityByType || []}
-          width={300}
-          height={220}
-          accessor="value"
-          backgroundColor="transparent"
-          paddingLeft="15"
-          chartConfig={chartConfig}
-        />
+        {dashboardData.capacityByType.length > 0 ? (
+          <PieChart
+            data={dashboardData.capacityByType}
+            width={300}
+            height={220}
+            accessor="value"
+            backgroundColor="transparent"
+            paddingLeft="15"
+            chartConfig={chartConfig}
+          />
+        ) : (
+          <Text>No chart data available</Text>
+        )}
       </Stack>
       <Text style={styles.mapTitle}>Project Locations Map</Text>
       <MapView
@@ -109,10 +123,11 @@ const DefaultPage = () => {
     const fetchLocationData = async () => {
       try {
         const response = await fetch('https://imost.ptplnnr.com/api/dashboard');
+        if (!response.ok) throw new Error('Failed to fetch location data');
         const data = await response.json();
         setLocationData(data.powerPlants || []);
       } catch (error) {
-        console.error('Error fetching data:', error);
+        console.error('Error fetching location data:', error);
       } finally {
         setIsLoading(false);
       }
@@ -123,13 +138,18 @@ const DefaultPage = () => {
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <View style={styles.centered}>
         <ActivityIndicator size="large" color="#16718A" />
       </View>
     );
   }
 
-  return <HomePage locations={locationData} />;
+  // Validate locationData against Location type
+  const validLocations = locationData.filter(
+    (loc) => loc.lat !== undefined && loc.lng !== undefined && loc.title && loc.type
+  );
+
+  return <HomePage locations={validLocations} />;
 };
 
 const chartConfig = {
@@ -144,6 +164,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 10,
+  },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   infoCard: {
     padding: 15,
