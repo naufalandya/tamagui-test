@@ -1,18 +1,37 @@
 import React from 'react';
 import { Text, View, StyleSheet, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
 
-// Mock data model
-// Replace this with the actual project model or prop passed
-const ProjectCard = ({ project }) => {
-  const navigation = useNavigation();
+// Define the navigation parameters
+type RootStackParamList = {
+  ProjectDetailPage: { project: Project };
+};
+
+// Type definition for project props
+type Project = {
+  id: number;
+  name: string;
+  description: string;
+  deadline: string;
+};
+
+type ProjectCardProps = {
+  project: Project;
+};
+
+// Type the navigation prop
+type NavigationProps = StackNavigationProp<RootStackParamList, 'ProjectDetailPage'>;
+
+const ProjectCard: React.FC<ProjectCardProps> = ({ project }) => {
+  const navigation = useNavigation<NavigationProps>();
 
   const navigateToDetails = () => {
     navigation.navigate('ProjectDetailPage', { project });
   };
 
   return (
-    <TouchableOpacity onPress={navigateToDetails}>
+    <TouchableOpacity onPress={navigateToDetails} style={styles.cardContainer}>
       <View style={styles.card}>
         <Text style={styles.projectName}>{project.name}</Text>
         <Text style={styles.projectDescription}>{project.description}</Text>
@@ -22,8 +41,11 @@ const ProjectCard = ({ project }) => {
   );
 };
 
-// Stylesheet
 const styles = StyleSheet.create({
+  cardContainer: {
+    marginVertical: 8,
+    marginHorizontal: 16,
+  },
   card: {
     backgroundColor: '#fff',
     padding: 16,
@@ -33,8 +55,6 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
     elevation: 4,
-    marginVertical: 8,
-    marginHorizontal: 16,
   },
   projectName: {
     fontWeight: 'bold',

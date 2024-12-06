@@ -39,7 +39,7 @@ const LoginPage = () => {
       >
         {/* Logo */}
         <Image
-          source={require('./assets/plnnr-bg.png')}
+          source={require('../assets/plnnr-bg.png')}
           style={{ width: 100, height: 100, alignSelf: 'center' }}
           resizeMode="contain"
         />

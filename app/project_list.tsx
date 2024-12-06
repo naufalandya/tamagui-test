@@ -1,4 +1,4 @@
-import ProjectCard from '/tamagui-test/components/projectCard'; // Import komponen ProjectCard
+import ProjectCard from '/tamagui-test/components/ProjectCard'; // Adjust path as needed
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, FlatList } from 'react-native';
 import { Picker } from '@react-native-picker/picker';

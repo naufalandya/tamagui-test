@@ -1,145 +1,215 @@
-import React, { useState, useEffect } from 'react';
-import { ActivityIndicator, Text } from 'react-native';
-import { View, YStack, ListItem } from 'tamagui';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { NavigationContainer } from '@react-navigation/native';
-import HomePage from '/tamagui-test/app//(tabs)/homepage';
-import TestPage2 from '/tamagui-test/app/(tabs)/testpage2';
-import ApiService from '/tamagui-test/api/ApiService';
-import { Location } from '../models/DashboardData';
+import React, { useEffect, useState } from 'react';
+import { View, Text, ActivityIndicator, ScrollView, StyleSheet } from 'react-native';
+import { PieChart } from 'react-native-chart-kit';
+import MapView, { Marker } from 'react-native-maps';
+import { Stack } from '@tamagui/core';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-// Type definitions
+// Define types for locations and dashboard data
+type Location = {
+  lat: number;
+  lng: number;
+  title: string;
+  type: string;
+};
 
-interface IconSummary {
-  id: number;
-  name: string;
-  // Add other relevant properties
+type DashboardData = {
+  totalInvest: string;
+  totalCapacity: string;
+  totalProduction: string;
+  esgRating: string;
+  capacityByType: Array<{ name: string; value: number; color: string }>;
+};
+
+// Props for HomePage
+interface HomePageProps {
+  locations: Location[];
+  iconSummariesData: any[];
 }
 
-const Tab = createBottomTabNavigator();
+const fetchDashboardData = async (): Promise<DashboardData | null> => {
+  try {
+    const response = await fetch('https://imost.ptplnnr.com/api/dashboard');
+    if (!response.ok) throw new Error('Failed to fetch data');
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching dashboard data:', error);
+    return null;
+  }
+};
 
-const DefaultPage: React.FC = () => {
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [locationData, setLocationData] = useState<Location[]>([]);
-  const [iconSummariesData, setIconSummariesData] = useState<IconSummary[]>([]);
-  const [isExpanded, setIsExpanded] = useState<boolean>(false);
+const HomePage = ({ locations, iconSummariesData }: HomePageProps) => {
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const loadData = async () => {
-      try {
-        const locations = await ApiService.fetchLocation();
-        const iconSummaries = await ApiService.fetchIconSummariesData();
-
-        const validLocations = locations.filter(
-          (loc: any) => loc.lat !== undefined && loc.lng !== undefined && loc.title && loc.type
-        );
-
-        setLocationData(locationData);
-        setIconSummariesData(iconSummaries);
-      } catch (error) {
-        console.error('Error loading data:', error);
-      } finally {
-        setIsLoading(false);
-      }
+      const data = await fetchDashboardData();
+      setDashboardData(data);
+      setIsLoading(false);
     };
 
     loadData();
   }, []);
 
-  const MoreSection: React.FC = () => (
-    <YStack>
-      <ListItem
-        title="ESG"
-        icon={<Text>🌿</Text>}
-        onPress={() => setIsExpanded(!isExpanded)}
-      />
-      <ListItem
-        title="Project Details"
-        icon={<Text>📋</Text>}
-        onPress={() => {
-          setIsExpanded(false);
-          // TODO: Add navigation logic for TestPage3
-        }}
-      />
-      <ListItem
-        title="Option 2"
-        icon={<Text>📑</Text>}
-        onPress={() => setIsExpanded(false)}
-      />
-    </YStack>
-  );
-
-  // Loading state
   if (isLoading) {
     return (
-      <View 
-        style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}
-      >
-        <ActivityIndicator 
-          size="large" 
-          color="#16718A" 
-        />
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color="#16718A" />
+      </View>
+    );
+  }
+
+  if (!dashboardData) {
+    return (
+      <View style={styles.centered}>
+        <Text>Error loading data. Please try again later.</Text>
       </View>
     );
   }
 
   return (
-    <NavigationContainer>
-      <Tab.Navigator
-        screenOptions={{
-          tabBarStyle: { backgroundColor: '#16718A' },
-          tabBarActiveTintColor: '#FFFFFF',
-          tabBarInactiveTintColor: '#A8A8A8',
-          headerShown: false, // Hide default header
+    <ScrollView style={styles.container}>
+      <Stack space>
+        <InfoCard title="Total Nilai Investasi" subtitle={`Rp ${dashboardData.totalInvest}`} />
+        <InfoCard title="Total Kapasitas Pembangkit" subtitle={`${dashboardData.totalCapacity} MW`} />
+        <InfoCard title="Total Produksi Listrik" subtitle={`${dashboardData.totalProduction} GWh`} />
+      </Stack>
+      <Stack style={styles.chartContainer}>
+        <Text>Kapasitas Per Jenis Pembangkit</Text>
+        {dashboardData.capacityByType.length > 0 ? (
+          <PieChart
+            data={dashboardData.capacityByType}
+            width={300}
+            height={220}
+            accessor="value"
+            backgroundColor="transparent"
+            paddingLeft="15"
+            chartConfig={chartConfig}
+          />
+        ) : (
+          <Text>No chart data available</Text>
+        )}
+      </Stack>
+      <Text style={styles.mapTitle}>Project Locations Map</Text>
+      <MapView
+        style={styles.map}
+        initialRegion={{
+          latitude: -2.5489,
+          longitude: 118.0149,
+          latitudeDelta: 10,
+          longitudeDelta: 10,
         }}
       >
-        <Tab.Screen
-          name="Home"
-          options={{ 
-            tabBarIcon: () => <Text>🏠</Text>,
-            title: 'Home'
-          }}
-        >
-          {() => (
-            <HomePage
-              Location ={locationData}
-              iconSummariesData={iconSummariesData}
-            />
-          )}
-        </Tab.Screen>
-
-        <Tab.Screen
-          name="Projects"
-          options={{ 
-            tabBarIcon: () => <Text>📄</Text>,
-            title: 'Projects'
-          }}
-        >
-          {() => <TestPage2 locations={locationData} />}
-        </Tab.Screen>
-
-        <Tab.Screen
-          name="More"
-          options={{ 
-            tabBarIcon: () => <Text>☰</Text>,
-            title: 'More'
-          }}
-        >
-          {() => (
-            isExpanded 
-              ? <MoreSection /> 
-              : (
-                <View 
-                  style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}
-                >
-                  <Text>No Content Available</Text>
-                </View>
-              )
-          )}
-        </Tab.Screen>
-      </Tab.Navigator>
-    </NavigationContainer>
+        {locations.map((location, index) => (
+          <Marker
+            key={index}
+            coordinate={{ latitude: location.lat, longitude: location.lng }}
+            title={location.title}
+            description={location.type}
+          />
+        ))}
+      </MapView>
+    </ScrollView>
   );
 };
+
+const InfoCard = ({ title, subtitle }: { title: string; subtitle: string }) => (
+  <Stack space style={styles.infoCard}>
+    <Text style={styles.cardTitle}>{title}</Text>
+    <Text style={styles.cardSubtitle}>{subtitle}</Text>
+  </Stack>
+);
+
+const DefaultPage = () => {
+  const [locationData, setLocationData] = useState<Location[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchLocationData = async () => {
+      try {
+        const response = await fetch('https://imost.ptplnnr.com/api/dashboard');
+        if (!response.ok) throw new Error('Failed to fetch location data');
+        const data = await response.json();
+        setLocationData(data.powerPlants || []);
+      } catch (error) {
+        console.error('Error fetching location data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchLocationData();
+  }, []);
+
+  if (isLoading) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color="#16718A" />
+      </View>
+    );
+  }
+
+  // Validate locationData against Location type
+  const validLocations = locationData.filter(
+    (loc) => loc.lat !== undefined && loc.lng !== undefined && loc.title && loc.type
+  );
+
+  return (
+    <HomePage
+      locations={validLocations}
+      iconSummariesData={[]}
+    />
+  );
+};
+
+const chartConfig = {
+  backgroundGradientFrom: '#16718A',
+  backgroundGradientTo: '#16718A',
+  color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+  strokeWidth: 2,
+  barPercentage: 0.5,
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: 10,
+  },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  infoCard: {
+    padding: 15,
+    backgroundColor: '#16718A',
+    borderRadius: 10,
+    marginVertical: 10,
+  },
+  cardTitle: {
+    fontSize: 16,
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  cardSubtitle: {
+    fontSize: 14,
+    color: 'white',
+  },
+  chartContainer: {
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  map: {
+    width: '100%',
+    height: 300,
+  },
+  mapTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginVertical: 10,
+    textAlign: 'center',
+  },
+});
 
 export default DefaultPage;
